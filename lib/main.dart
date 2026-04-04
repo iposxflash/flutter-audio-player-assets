@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
-
-import '/home_screen.dart';
+import 'package:just_audio/just_audio.dart'; // Pastikan sudah install di pubspec.yaml
+import 'screens/home_screen.dart';
+import 'widgets/mini_player.dart';
 
 void main() {
   runApp(const MyApp());
@@ -13,11 +14,49 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      title: 'Flutter Demo',
+      title: 'Musik Sasak',
       theme: ThemeData(
-        primarySwatch: Colors.blue,
+        brightness: Brightness.dark, // Tema gelap lebih keren untuk app musik
+        primaryColor: Colors.redAccent,
+        useMaterial3: true,
       ),
-      home: const HomeScreen(),
+      home: const MainLayout(),
+    );
+  }
+}
+
+// Ini adalah Wrapper yang membungkus HomeScreen dan Mini Player (Footer)
+class MainLayout extends StatefulWidget {
+  const MainLayout({super.key});
+
+  @override
+  State<MainLayout> createState() => _MainLayoutState();
+}
+
+class _MainLayoutState extends State<MainLayout> {
+  final AudioPlayer _audioPlayer = AudioPlayer(); // Satu player untuk seluruh app
+
+  @override
+  void dispose() {
+    _audioPlayer.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      // Body utama tetap HomeScreen
+      body: Stack(
+        children: [
+          const HomeScreen(), 
+          
+          // Bagian FOOTER (Mini Player) yang melayang di bawah
+          Align(
+            alignment: Alignment.bottomCenter,
+            child: MiniPlayer(player: _audioPlayer),
+          ),
+        ],
+      ),
     );
   }
 }
