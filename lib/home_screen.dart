@@ -1,50 +1,80 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
-class HomeScreen extends StatelessWidget {
+class HomeScreen extends StatefulWidget {
   final String selectedCategory;
   final Function(String) onCategoryChanged;
   final Function(String title, String artist, String url) onSongTap;
 
-  HomeScreen({
+  const HomeScreen({
     super.key,
     required this.selectedCategory,
     required this.onCategoryChanged,
     required this.onSongTap,
   });
 
-  // Data lagu menggunakan URL streaming agar bisa langsung dicoba
-  final Map<String, List<Map<String, String>>> songs = {
-    "Sasak": [
-      {
-        "title": "Kadal Nongaq",
-        "artist": "Artis Sasak 1",
-        "url": "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3"
-      },
-      {
-        "title": "Lalo Nganteni",
-        "artist": "Artis Sasak 2",
-        "url": "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3"
-      },
-    ],
-    "Pop": [
-      {
-        "title": "Lagu Pop 1",
-        "artist": "Penyanyi Pop",
-        "url": "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3"
-      },
-    ],
-    "Lainnya": [
-      {
-        "title": "Instrumen Gamelan",
-        "artist": "Tradisional",
-        "url": "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-4.mp3"
-      },
-    ],
-  };
+  @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> {
+  final TextEditingController _searchController = TextEditingController();
+  String _searchQuery = "";
+  List<Map<String, String>> _allSongs = [];
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadAssets(); // Panggil fungsi baca aset saat start
+  }
+
+  // FUNGSI INTI: Membaca daftar file mp3 dari folder assets secara otomatis
+  Future<void> _loadAssets() async {
+    try {
+      // 1. Ambil manifest aset dari Flutter
+      final manifestContent = await rootBundle.loadString('AssetManifest.json');
+      final Map<String, dynamic> manifestMap = json.decode(manifestContent);
+
+      // 2. Filter hanya file yang ada di folder assets/audios/ dan berakhiran .mp3
+      final List<String> mp3Paths = manifestMap.keys
+          .where((String key) => key.contains('assets/audios/') && key.endsWith('.mp3'))
+          .toList();
+
+      // 3. Ubah path file menjadi objek lagu (Title diambil dari nama file)
+      final List<Map<String, String>> loadedSongs = mp3Paths.map((path) {
+        // Mengambil nama file saja: assets/audios/lagu_sasak.mp3 -> lagu_sasak
+        String fileName = path.split('/').last.replaceAll('.mp3', '');
+        // Percantik tampilan: ganti underscore/strip jadi spasi dan huruf kapital
+        String title = fileName.replaceAll('_', ' ').replaceAll('-', ' ');
+        title = title[0].toUpperCase() + title.substring(1);
+
+        return {
+          "title": title,
+          "artist": "Musik Sasak", // Artis bisa diset default atau ambil dari meta nantinya
+          "url": path,
+        };
+      }).toList();
+
+      setState(() {
+        _allSongs = loadedSongs;
+        _isLoading = false;
+      });
+    } catch (e) {
+      debugPrint("Gagal baca aset: $e");
+      setState(() => _isLoading = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    final currentSongs = songs[selectedCategory] ?? [];
+    // Filter pencarian
+    final filteredSongs = _allSongs.where((song) {
+      final title = song['title']!.toLowerCase();
+      final query = _searchQuery.toLowerCase();
+      return title.contains(query);
+    }).toList();
 
     return Container(
       decoration: const BoxDecoration(
@@ -55,155 +85,50 @@ class HomeScreen extends StatelessWidget {
         ),
       ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const SizedBox(height: 15),
-          // --- BAGIAN KATEGORI (HORIZONTAL) ---
+          const SizedBox(height: 20),
+          // Kolom Pencarian
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16.0),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                _buildCategoryItem("Sasak", Icons.terrain, Colors.greenAccent),
-                _buildCategoryItem("Pop", Icons.music_note, Colors.orangeAccent),
-                _buildCategoryItem("Lainnya", Icons.library_music, Colors.blueAccent),
-              ],
-            ),
-          ),
-          const SizedBox(height: 30),
-          const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 20.0),
-            child: Text(
-              "Daftar Lagu",
-              style: TextStyle(
-                fontSize: 22,
-                fontWeight: FontWeight.bold,
-                color: Colors.white,
-                letterSpacing: 1,
+            child: TextField(
+              controller: _searchController,
+              onChanged: (value) => setState(() => _searchQuery = value),
+              style: const TextStyle(color: Colors.white),
+              decoration: InputDecoration(
+                hintText: "Cari lagu otomatis...",
+                prefixIcon: const Icon(Icons.search, color: Colors.redAccent),
+                filled: true,
+                fillColor: Colors.white.withOpacity(0.07),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(30), borderSide: BorderSide.none),
               ),
             ),
           ),
-          const SizedBox(height: 15),
-          // --- DAFTAR LAGU (RESPONSIF) ---
+          const SizedBox(height: 20),
+          
           Expanded(
-            child: ListView.separated(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              itemCount: currentSongs.length,
-              separatorBuilder: (context, index) => const SizedBox(height: 10),
-              itemBuilder: (context, index) {
-                var song = currentSongs[index];
-                return AnimatedContainer(
-                  duration: const Duration(milliseconds: 300),
-                  child: Material(
-                    color: Colors.transparent,
-                    child: InkWell(
-                      borderRadius: BorderRadius.circular(15),
-                      onTap: () => onSongTap(
-                        song['title']!,
-                        song['artist']!,
-                        song['url']!,
-                      ),
-                      child: Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.05),
-                          borderRadius: BorderRadius.circular(15),
-                          border: Border.all(
-                            color: Colors.white.withOpacity(0.1),
-                            width: 1,
-                          ),
-                        ),
-                        child: Row(
-                          children: [
-                            Container(
-                              height: 50,
-                              width: 50,
-                              decoration: BoxDecoration(
-                                color: Colors.redAccent.withOpacity(0.2),
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                              child: const Icon(Icons.play_arrow_rounded,
-                                  color: Colors.redAccent, size: 30),
-                            ),
-                            const SizedBox(width: 15),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    song['title']!,
-                                    style: const TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    song['artist']!,
-                                    style: TextStyle(
-                                      color: Colors.white.withOpacity(0.6),
-                                      fontSize: 13,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            Icon(Icons.more_vert,
-                                color: Colors.white.withOpacity(0.5)),
-                          ],
-                        ),
-                      ),
-                    ),
+            child: _isLoading 
+              ? const Center(child: CircularProgressIndicator(color: Colors.redAccent))
+              : filteredSongs.isEmpty
+                ? const Center(child: Text("Tidak ada file .mp3 di assets/audios/", style: TextStyle(color: Colors.white54)))
+                : ListView.separated(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    itemCount: filteredSongs.length,
+                    separatorBuilder: (context, index) => const SizedBox(height: 10),
+                    itemBuilder: (context, index) {
+                      var song = filteredSongs[index];
+                      return ListTile(
+                        onTap: () => widget.onSongTap(song['title']!, song['artist']!, song['url']!),
+                        tileColor: Colors.white.withOpacity(0.05),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+                        leading: const Icon(Icons.music_note, color: Colors.redAccent),
+                        title: Text(song['title']!, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                        subtitle: Text(song['artist']!, style: const TextStyle(color: Colors.white60, fontSize: 12)),
+                        trailing: const Icon(Icons.play_circle_fill, color: Colors.redAccent),
+                      );
+                    },
                   ),
-                );
-              },
-            ),
           ),
-          // --- RUANG KOSONG (PENTING) ---
-          // SizedBox ini memastikan lagu terbawah bisa di-scroll melewati MiniPlayer
           const SizedBox(height: 110),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildCategoryItem(String name, IconData icon, Color color) {
-    bool isSelected = selectedCategory == name;
-    return GestureDetector(
-      onTap: () => onCategoryChanged(name),
-      child: Column(
-        children: [
-          AnimatedContainer(
-            duration: const Duration(milliseconds: 400),
-            padding: const EdgeInsets.all(15),
-            decoration: BoxDecoration(
-              color: isSelected ? color : Colors.white.withOpacity(0.05),
-              borderRadius: BorderRadius.circular(20),
-              boxShadow: isSelected
-                  ? [
-                      BoxShadow(
-                          color: color.withOpacity(0.3),
-                          blurRadius: 15,
-                          offset: const Offset(0, 5))
-                    ]
-                  : [],
-            ),
-            child: Icon(
-              icon,
-              color: isSelected ? Colors.black87 : color,
-              size: 28,
-            ),
-          ),
-          const SizedBox(height: 10),
-          Text(
-            name,
-            style: TextStyle(
-              fontSize: 13,
-              color: isSelected ? Colors.white : Colors.white60,
-              fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-            ),
-          ),
         ],
       ),
     );
