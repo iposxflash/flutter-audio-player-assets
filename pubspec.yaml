@@ -11,7 +11,7 @@ dependencies:
     sdk: flutter
   cupertino_icons: ^1.0.8
   just_audio: ^0.9.36
-  just_audio_background: ^0.0.1-beta.11 # Tambahkan ini untuk notifikasi
+  just_audio_background: ^0.0.1-beta.11 # Penting untuk notifikasi "tanda di atas"
 
 dev_dependencies:
   flutter_test:
