@@ -39,36 +39,46 @@ jobs:
 
       - name: Customize and Upgrade SDK
         run: |
-          # Ganti Nama Aplikasi (Sesuai input app_name)
+          # 1. Ganti Nama Aplikasi di AndroidManifest
           sed -i "s/android:label=\"[^\"]*\"/android:label=\"${{ github.event.inputs.app_name }}\"/g" android/app/src/main/AndroidManifest.xml || true
           
-          # Ganti Package Name (ApplicationId)
+          # 2. Ganti Package Name (ApplicationId) di build.gradle
           NEW_PKG="${{ github.event.inputs.package_name }}"
           sed -i "s/applicationId \".*\"/applicationId \"$NEW_PKG\"/g" android/app/build.gradle || true
           
-          # Upgrade SDK (Target 34 untuk standar Play Store terbaru)
+          # 3. Upgrade SDK ke standar terbaru (API 34)
           sed -i "s/compileSdkVersion .*/compileSdkVersion 34/g" android/app/build.gradle || true
           sed -i "s/targetSdkVersion .*/targetSdkVersion 34/g" android/app/build.gradle || true
           sed -i "s/minSdkVersion .*/minSdkVersion 21/g" android/app/build.gradle || true
 
       - name: Build Universal APK
-        # Membangun satu APK tunggal (Fat APK) yang bisa diinstall di semua HP
+        # Menghasilkan SATU file APK universal (kompatibel semua HP)
         run: flutter build apk --release
 
       - name: Build AAB Release
-        # Membangun bundle untuk Play Store
+        # Menghasilkan Bundle untuk Play Store
         run: flutter build appbundle --release
 
-      - name: Rename and Prepare Files
+      - name: Prepare Separate Artifacts
         run: |
-          mkdir -p release-files
-          # PERBAIKAN: Semua path dibungkus tanda kutip ("") agar spasi tidak jadi error
-          cp "build/app/outputs/flutter-apk/app-release.apk" "release-files/${{ github.event.inputs.app_name }}-Universal.apk"
-          cp "build/app/outputs/bundle/release/app-release.aab" "release-files/${{ github.event.inputs.app_name }}.aab"
+          mkdir -p release-apk
+          mkdir -p release-aab
+          # Salin file ke folder terpisah dengan tanda kutip untuk menangani spasi
+          cp "build/app/outputs/flutter-apk/app-release.apk" "release-apk/${{ github.event.inputs.app_name }}-Universal.apk"
+          cp "build/app/outputs/bundle/release/app-release.aab" "release-aab/${{ github.event.inputs.app_name }}.aab"
 
-      - name: Upload Build Artifacts
+      # --- DOWNLOAD TERPISAH (HEMAT KUOTA) ---
+
+      - name: Upload APK Only (For Testing)
         uses: actions/upload-artifact@v4
         with:
-          # PERBAIKAN: Nama artifact juga dibungkus tanda kutip
-          name: "${{ github.event.inputs.app_name }}-Final-Build"
-          path: release-files/
+          # Muncul sebagai download terpisah di GitHub
+          name: "${{ github.event.inputs.app_name }}-APK-Only"
+          path: release-apk/
+
+      - name: Upload AAB Only (For Play Store)
+        uses: actions/upload-artifact@v4
+        with:
+          # Muncul sebagai download terpisah di GitHub
+          name: "${{ github.event.inputs.app_name }}-AAB-Only"
+          path: release-aab/
