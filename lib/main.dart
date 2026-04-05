@@ -5,12 +5,14 @@ import 'home_screen.dart';
 import 'widgets/mini_player.dart'; 
 
 Future<void> main() async {
+  // 1. WAJIB: Agar aplikasi tidak blank saat start
   WidgetsFlutterBinding.ensureInitialized();
 
+  // 2. Inisialisasi notifikasi kontrol musik di bar atas
   try {
     await JustAudioBackground.init(
-      androidNotificationChannelId: 'com.ojgrup.musiksasak.audio', // ID unik channel
-      androidNotificationChannelName: 'Musik Sasak Playback',
+      androidNotificationChannelId: 'com.ojgrup.musiksasak.audio', 
+      androidNotificationChannelName: 'Musik Playback',
       androidNotificationOngoing: true,
     );
   } catch (e) {
@@ -27,7 +29,7 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      title: 'Musik Sasak',
+      title: 'Musik Sumbawa',
       theme: ThemeData(
         brightness: Brightness.dark,
         scaffoldBackgroundColor: const Color(0xFF121212),
@@ -49,22 +51,23 @@ class MainLayout extends StatefulWidget {
 class _MainLayoutState extends State<MainLayout> {
   final AudioPlayer _audioPlayer = AudioPlayer();
   
-  // PERBAIKAN: Default category disesuaikan dengan home_screen.dart
+  // PERBAIKAN: Default category sekarang "Lagu Sumbawa" sesuai HomeScreen terbaru
   String _selectedCategory = "Lagu Sumbawa"; 
   String _currentTitle = "Pilih Lagu";
   String _currentArtist = "Klik untuk memutar";
 
   void _playMusic(String title, String artist, String assetPath) async {
     try {
+      // 3. Set AudioSource dengan Metadata agar muncul di notifikasi
       await _audioPlayer.setAudioSource(
         AudioSource.asset(
           assetPath,
           tag: MediaItem(
             id: assetPath, 
-            album: "Musik Sasak",
+            album: "Sumbawa Music",
             title: title,
             artist: artist,
-            // Jika logo.png belum ada di assets/images/, baris artUri di bawah bisa dihapus dulu
+            // Pastikan ada file assets/images/logo.png
             artUri: Uri.parse("asset:///assets/images/logo.png"), 
           ),
         ),
@@ -78,9 +81,15 @@ class _MainLayoutState extends State<MainLayout> {
       });
     } catch (e) {
       debugPrint("Error playback: $e");
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Error: File audio tidak ditemukan atau rusak")),
-      );
+      // Menampilkan pesan error jika file tidak bisa diputar
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("Error: File audio tidak ditemukan atau rusak"),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
 
@@ -93,6 +102,7 @@ class _MainLayoutState extends State<MainLayout> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      // 4. Menggunakan Stack agar MiniPlayer melayang di bagian bawah
       body: Stack(
         children: [
           SafeArea(
