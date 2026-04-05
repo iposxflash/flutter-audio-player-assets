@@ -1,105 +1,149 @@
 import 'package:flutter/material.dart';
 
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key});
+  // Tambahkan callback agar saat lagu diklik, main.dart tahu lagu apa yang diputar
+  final Function(String title, String artist, String url) onSongTap;
+  final String selectedCategory;
+  final Function(String) onCategoryChanged;
+
+  const HomeScreen({
+    super.key, 
+    required this.onSongTap,
+    required this.selectedCategory,
+    required this.onCategoryChanged,
+  });
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  String selectedCategory = "Sasak"; // Kategori default
-
-  // Data dummy lagu berdasarkan kategori
+  // Data lagu tetap di sini atau bisa dipindah ke model terpisah
   final Map<String, List<Map<String, String>>> songs = {
     "Sasak": [
-      {"title": "Kadal Nongaq", "artist": "Artis Sasak 1", "file": "sasak1.mp3"},
-      {"title": "Lalo Nganteni", "artist": "Artis Sasak 2", "file": "sasak2.mp3"},
+      {"title": "Kadal Nongaq", "artist": "Artis Sasak 1", "url": "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3"},
+      {"title": "Lalo Nganteni", "artist": "Artis Sasak 2", "url": "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3"},
     ],
     "Pop": [
-      {"title": "Lagu Pop 1", "artist": "Penyanyi Pop", "file": "pop1.mp3"},
+      {"title": "Lagu Pop 1", "artist": "Penyanyi Pop", "url": "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3"},
     ],
     "Lainnya": [
-      {"title": "Instrumen Gamelan", "artist": "Tradisional", "file": "ukulele.mp3"},
+      {"title": "Instrumen Gamelan", "artist": "Tradisional", "url": "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-4.mp3"},
     ],
   };
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.white,
-      appBar: AppBar(
-        title: const Text("Musik Sasak", style: TextStyle(color: Colors.black)),
-        backgroundColor: Colors.white,
-        elevation: 0,
-      ),
-      body: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Bagian 1: 3 Kategori
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16.0),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                _buildCategoryItem("Sasak", Icons.terrain, Colors.green),
-                _buildCategoryItem("Pop", Icons.music_note, Colors.orange),
-                _buildCategoryItem("Lainnya", Icons.library_music, Colors.blue),
-              ],
-            ),
-          ),
-          const SizedBox(height: 20),
-          const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 16.0),
-            child: Text("Daftar Lagu", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-          ),
+    // Gunakan widget.selectedCategory karena state dikontrol dari main.dart
+    final currentSongs = songs[widget.selectedCategory] ?? [];
 
-          // Bagian 2: List Lagu
-          Expanded(
-            child: ListView.builder(
-              itemCount: songs[selectedCategory]?.length ?? 0,
-              itemBuilder: (context, index) {
-                var song = songs[selectedCategory]![index];
-                return ListTile(
-                  leading: const CircleAvatar(child: Icon(Icons.play_arrow)),
-                  title: Text(song['title']!),
-                  subtitle: Text(song['artist']!),
-                  trailing: const Icon(Icons.more_vert),
-                  onTap: () {
-                    // Logika untuk memutar lagu di Footer nanti
-                    print("Memutar: ${song['title']}");
-                  },
-                );
-              },
-            ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SizedBox(height: 10),
+        // Bagian 1: 3 Kategori
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16.0),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              _buildCategoryItem("Sasak", Icons.terrain, Colors.green),
+              _buildCategoryItem("Pop", Icons.music_note, Colors.orange),
+              _buildCategoryItem("Lainnya", Icons.library_music, Colors.blue),
+            ],
           ),
-          
-          // Beri jarak di bawah agar tidak tertutup Footer
-          const SizedBox(height: 80),
-        ],
-      ),
+        ),
+        const SizedBox(height: 25),
+        const Padding(
+          padding: EdgeInsets.symmetric(horizontal: 16.0),
+          child: Text(
+            "Daftar Lagu", 
+            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.black87)
+          ),
+        ),
+        const SizedBox(height: 10),
+
+        // Bagian 2: List Lagu
+        Expanded(
+          child: ListView.builder(
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            itemCount: currentSongs.length,
+            itemBuilder: (context, index) {
+              var song = currentSongs[index];
+              return Card(
+                elevation: 0,
+                color: Colors.grey[50],
+                margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                child: ListTile(
+                  leading: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Colors.red.withOpacity(0.1),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.play_arrow, color: Colors.red),
+                  ),
+                  title: Text(
+                    song['title']!, 
+                    style: const TextStyle(fontWeight: FontWeight.w600)
+                  ),
+                  subtitle: Text(song['artist']!),
+                  trailing: const Icon(Icons.more_vert, color: Colors.grey),
+                  onTap: () {
+                    // Panggil fungsi play yang ada di main.dart
+                    widget.onSongTap(
+                      song['title']!, 
+                      song['artist']!, 
+                      song['url']!
+                    );
+                  },
+                ),
+              );
+            },
+          ),
+        ),
+        // Beri space agar tidak tertutup Mini Player
+        const SizedBox(height: 90),
+      ],
     );
   }
 
-  // Widget untuk tombol Kategori
   Widget _buildCategoryItem(String name, IconData icon, Color color) {
-    bool isSelected = selectedCategory == name;
+    bool isSelected = widget.selectedCategory == name;
     return GestureDetector(
-      onTap: () => setState(() => selectedCategory = name),
-      child: Column(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(15),
-            decoration: BoxDecoration(
-              color: isSelected ? color : color.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(20),
-              boxShadow: isSelected ? [BoxShadow(color: color.withOpacity(0.4), blurRadius: 10)] : [],
+      onTap: () => widget.onCategoryChanged(name),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeInOut,
+        child: Column(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(15),
+              decoration: BoxDecoration(
+                color: isSelected ? color : color.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(22),
+                boxShadow: isSelected 
+                    ? [BoxShadow(color: color.withOpacity(0.3), blurRadius: 12, offset: const Offset(0, 4))] 
+                    : [],
+              ),
+              child: Icon(
+                icon, 
+                color: isSelected ? Colors.white : color, 
+                size: 32
+              ),
             ),
-            child: Icon(icon, color: isSelected ? Colors.white : color, size: 30),
-          ),
-          const SizedBox(height: 8),
-          Text(name, style: TextStyle(fontWeight: isSelected ? FontWeight.bold : FontWeight.normal)),
-        ],
+            const SizedBox(height: 10),
+            Text(
+              name, 
+              style: TextStyle(
+                fontSize: 14,
+                color: isSelected ? Colors.black : Colors.grey[600],
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.w500
+              )
+            ),
+          ],
+        ),
       ),
     );
   }
