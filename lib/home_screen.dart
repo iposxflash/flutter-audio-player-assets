@@ -35,6 +35,7 @@ class _HomeScreenState extends State<HomeScreen> {
       final manifestContent = await rootBundle.loadString('AssetManifest.json');
       final Map<String, dynamic> manifestMap = json.decode(manifestContent);
 
+      // Filter hanya file mp3 di folder audios
       final List<String> mp3Paths = manifestMap.keys
           .where((String key) => key.contains('assets/audios/') && key.endsWith('.mp3'))
           .toList();
@@ -44,7 +45,9 @@ class _HomeScreenState extends State<HomeScreen> {
         final String decodedPath = Uri.decodeComponent(path);
         
         String fileName = decodedPath.split('/').last.replaceAll('.mp3', '');
-        String title = fileName.replaceAll('_', ' ').replaceAll('-', ' ');
+        
+        // Membersihkan judul dari karakter aneh (-, _, ( ), dll)
+        String title = fileName.replaceAll(RegExp(r'[_\-\(\)]'), ' ').trim();
         
         if (title.isNotEmpty) {
           title = title[0].toUpperCase() + title.substring(1);
@@ -54,7 +57,7 @@ class _HomeScreenState extends State<HomeScreen> {
           "title": title,
           "artist": "Sumbawa Music",
           "url": decodedPath,
-          // LOGIKA KATEGORI: Jika nama file ada kata 'dj', masuk ke 'DJ Sumbawa'
+          // Logika kategori: Cek kata 'dj' di nama file
           "category": decodedPath.toLowerCase().contains('dj') ? "DJ Sumbawa" : "Lagu Sumbawa", 
         };
       }).toList();
@@ -95,21 +98,21 @@ class _HomeScreenState extends State<HomeScreen> {
         children: [
           const SizedBox(height: 25),
           
-          // --- 1. MENU KATEGORI (Hanya 2 Kategori) ---
+          // --- 1. MENU KATEGORI (Hanya 2) ---
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 30.0),
+            padding: const EdgeInsets.symmetric(horizontal: 16.0),
             child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: [
-                _buildCategoryItem("Lagu Sumbawa", Icons.music_note, Colors.greenAccent),
-                _buildCategoryItem("DJ Sumbawa", Icons.headphones, Colors.orangeAccent),
+                Expanded(child: _buildCategoryItem("Lagu Sumbawa", Icons.music_note, Colors.greenAccent)),
+                const SizedBox(width: 15),
+                Expanded(child: _buildCategoryItem("DJ Sumbawa", Icons.headphones, Colors.orangeAccent)),
               ],
             ),
           ),
 
           const SizedBox(height: 20),
 
-          // --- 2. KOLOM PENCARIAN (Sekarang di bawah kategori) ---
+          // --- 2. KOLOM PENCARIAN ---
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16.0),
             child: TextField(
@@ -120,6 +123,15 @@ class _HomeScreenState extends State<HomeScreen> {
                 hintText: "Cari di ${widget.selectedCategory}...",
                 hintStyle: const TextStyle(color: Colors.white54, fontSize: 14),
                 prefixIcon: const Icon(Icons.search, color: Colors.redAccent, size: 20),
+                suffixIcon: _searchQuery.isNotEmpty 
+                  ? IconButton(
+                      icon: const Icon(Icons.clear, color: Colors.white38, size: 20),
+                      onPressed: () {
+                        _searchController.clear();
+                        setState(() => _searchQuery = "");
+                      },
+                    ) 
+                  : null,
                 filled: true,
                 fillColor: Colors.white.withOpacity(0.07),
                 contentPadding: const EdgeInsets.symmetric(vertical: 10),
@@ -131,36 +143,49 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ),
 
-          const SizedBox(height: 25),
+          const SizedBox(height: 15),
           
           // --- 3. DAFTAR LAGU ---
           Expanded(
             child: _isLoading 
               ? const Center(child: CircularProgressIndicator(color: Colors.redAccent))
               : filteredSongs.isEmpty
-                ? const Center(child: Text("Belum ada lagu di kategori ini", style: TextStyle(color: Colors.white54)))
+                ? Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.music_off, color: Colors.white12, size: 80),
+                        const SizedBox(height: 10),
+                        Text("Lagu tidak ditemukan", style: TextStyle(color: Colors.white38)),
+                      ],
+                    ),
+                  )
                 : ListView.separated(
                     padding: const EdgeInsets.only(left: 16, right: 16, bottom: 20),
                     itemCount: filteredSongs.length,
-                    separatorBuilder: (context, index) => const SizedBox(height: 10),
+                    separatorBuilder: (context, index) => const SizedBox(height: 8),
                     itemBuilder: (context, index) {
                       var song = filteredSongs[index];
                       return ListTile(
                         onTap: () => widget.onSongTap(song['title']!, song['artist']!, song['url']!),
                         tileColor: Colors.white.withOpacity(0.05),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-                        leading: CircleAvatar(
-                          backgroundColor: Colors.redAccent.withOpacity(0.8),
-                          child: const Icon(Icons.play_arrow, color: Colors.white),
+                        leading: Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: Colors.redAccent.withOpacity(0.1),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(Icons.play_arrow, color: Colors.redAccent),
                         ),
                         title: Text(
                           song['title']!, 
-                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15),
+                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
-                        subtitle: Text(song['artist']!, style: const TextStyle(color: Colors.white60, fontSize: 12)),
-                        trailing: const Icon(Icons.more_vert, color: Colors.white38),
+                        subtitle: Text(song['artist']!, style: const TextStyle(color: Colors.white60, fontSize: 11)),
+                        trailing: const Icon(Icons.chevron_right, color: Colors.white24),
                       );
                     },
                   ),
@@ -179,28 +204,29 @@ class _HomeScreenState extends State<HomeScreen> {
         setState(() => _searchQuery = "");
         widget.onCategoryChanged(name);
       },
-      child: Column(
-        children: [
-          AnimatedContainer(
-            duration: const Duration(milliseconds: 300),
-            padding: const EdgeInsets.symmetric(horizontal: 25, vertical: 15),
-            decoration: BoxDecoration(
-              color: isSelected ? color : Colors.white.withOpacity(0.05),
-              borderRadius: BorderRadius.circular(15),
-              boxShadow: isSelected ? [BoxShadow(color: color.withOpacity(0.2), blurRadius: 10)] : [],
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 300),
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        decoration: BoxDecoration(
+          color: isSelected ? color : Colors.white.withOpacity(0.05),
+          borderRadius: BorderRadius.circular(15),
+          boxShadow: isSelected ? [BoxShadow(color: color.withOpacity(0.3), blurRadius: 8, offset: const Offset(0, 4))] : [],
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, color: isSelected ? Colors.black : color, size: 20),
+            const SizedBox(width: 8),
+            Text(
+              name, 
+              style: TextStyle(
+                color: isSelected ? Colors.black : Colors.white, 
+                fontSize: 13, 
+                fontWeight: FontWeight.bold
+              )
             ),
-            child: Icon(icon, color: isSelected ? Colors.black : color, size: 30),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            name, 
-            style: TextStyle(
-              color: isSelected ? Colors.white : Colors.white60, 
-              fontSize: 12, 
-              fontWeight: isSelected ? FontWeight.bold : FontWeight.normal
-            )
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
