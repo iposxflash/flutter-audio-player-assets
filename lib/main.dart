@@ -17,7 +17,7 @@ class MyApp extends StatelessWidget {
       title: 'Musik Sasak',
       theme: ThemeData(
         brightness: Brightness.dark,
-        scaffoldBackgroundColor: const Color(0xFF121212), // Warna gelap pekat
+        scaffoldBackgroundColor: const Color(0xFF121212),
         primaryColor: Colors.redAccent,
         useMaterial3: true,
       ),
@@ -34,58 +34,70 @@ class MainLayout extends StatefulWidget {
 }
 
 class _MainLayoutState extends State<MainLayout> {
+  // Inisialisasi AudioPlayer tunggal agar bisa diakses di MiniPlayer
   final AudioPlayer _audioPlayer = AudioPlayer();
   
   String _selectedCategory = "Sasak";
-  String _currentTitle = "Pilih Lagu";
+  String _currentTitle = "Pilih Lagu Sasak";
   String _currentArtist = "Klik untuk memutar";
 
-  void _playMusic(String title, String artist, String url) async {
+  // Perbaikan: Menggunakan setAsset karena file ada di folder assets/audios/
+  void _playMusic(String title, String artist, String assetPath) async {
     try {
-      await _audioPlayer.setUrl(url);
+      // PERBAIKAN: Gunakan setAsset bukan setUrl untuk file lokal
+      await _audioPlayer.setAsset(assetPath);
       _audioPlayer.play();
+      
       setState(() {
         _currentTitle = title;
         _currentArtist = artist;
       });
     } catch (e) {
-      debugPrint("Error: $e");
+      debugPrint("Error memutar musik aset: $e");
+      // Tambahkan SnackBar jika file tidak ditemukan
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Gagal memutar: $title. Cek folder assets!")),
+      );
     }
   }
 
   @override
   void dispose() {
-    _audioPlayer.dispose();
+    _audioPlayer.dispose(); // Bersihkan memori saat aplikasi ditutup
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      // Menggunakan Stack untuk melapis konten dan player
       body: Stack(
         children: [
-          // 1. HOME SCREEN (Konten Utama)
-          // Membungkus dengan SafeArea agar tidak tertutup notch/status bar
+          // 1. KONTEN UTAMA (HOME SCREEN)
           SafeArea(
+            bottom: false, // Biar konten bisa "mengalir" ke bawah MiniPlayer
             child: HomeScreen(
               selectedCategory: _selectedCategory,
               onCategoryChanged: (newCategory) {
                 setState(() => _selectedCategory = newCategory);
               },
-              onSongTap: (title, artist, url) {
-                _playMusic(title, artist, url);
+              onSongTap: (title, artist, assetPath) {
+                // Parameter 'url' diubah jadi 'assetPath' agar sesuai logika lokal
+                _playMusic(title, artist, assetPath);
               },
             ),
           ),
           
           // 2. MINI PLAYER (Melayang di bawah)
+          // Dibungkus Padding agar tidak terlalu mepet ke bawah jika ada navigasi sistem
           Align(
             alignment: Alignment.bottomCenter,
-            child: MiniPlayer(
-              player: _audioPlayer,
-              songTitle: _currentTitle,
-              artist: _currentArtist,
+            child: Padding(
+              padding: const EdgeInsets.all(8.0),
+              child: MiniPlayer(
+                player: _audioPlayer,
+                songTitle: _currentTitle,
+                artist: _currentArtist,
+              ),
             ),
           ),
         ],
