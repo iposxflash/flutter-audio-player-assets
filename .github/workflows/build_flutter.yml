@@ -44,25 +44,30 @@ jobs:
           
           # 2. Ganti Package Name (ApplicationId)
           NEW_PKG="${{ github.event.inputs.package_name }}"
+          # Menggunakan sed untuk mengganti applicationId di build.gradle
           sed -i "s/applicationId \".*\"/applicationId \"$NEW_PKG\"/g" android/app/build.gradle || true
           
-          # 3. UPGRADE SDK (PENTING: Agar tidak dianggap versi lama oleh Play Protect)
+          # 3. UPGRADE SDK (Sesuai standar Google Play 2024/2025)
           sed -i "s/compileSdkVersion .*/compileSdkVersion 34/g" android/app/build.gradle || true
           sed -i "s/targetSdkVersion .*/targetSdkVersion 34/g" android/app/build.gradle || true
           sed -i "s/minSdkVersion .*/minSdkVersion 21/g" android/app/build.gradle || true
 
-      - name: Build APK Release
-        # Build APK universal dan split-per-abi
-        run: flutter build apk --release --split-per-abi
+      - name: Build Universal APK
+        # PERBAIKAN: Menghapus --split-per-abi agar menghasilkan SATU file APK yang kompatibel semua HP
+        run: flutter build apk --release
 
       - name: Build AAB Release
-        # Build Android App Bundle untuk Play Store
+        # Build Android App Bundle untuk Play Store (Otomatis kompatibel semua HP via Play Store)
         run: flutter build appbundle --release
+
+      - name: Rename and Prepare Files
+        run: |
+          mkdir -p release-files
+          cp build/app/outputs/flutter-apk/app-release.apk release-files/${{ github.event.inputs.app_name }}-Universal.apk
+          cp build/app/outputs/bundle/release/app-release.aab release-files/${{ github.event.inputs.app_name }}.aab
 
       - name: Upload Build Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ github.event.inputs.app_name }}-Build-Results
-          path: |
-            build/app/outputs/flutter-apk/*.apk
-            build/app/outputs/bundle/release/*.aab
+          name: ${{ github.event.inputs.app_name }}-Final-Build
+          path: release-files/
