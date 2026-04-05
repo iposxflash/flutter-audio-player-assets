@@ -27,33 +27,29 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
-    _loadAssets(); // Panggil fungsi baca aset saat start
+    _loadAssets();
   }
 
-  // FUNGSI INTI: Membaca daftar file mp3 dari folder assets secara otomatis
   Future<void> _loadAssets() async {
     try {
-      // 1. Ambil manifest aset dari Flutter
       final manifestContent = await rootBundle.loadString('AssetManifest.json');
       final Map<String, dynamic> manifestMap = json.decode(manifestContent);
 
-      // 2. Filter hanya file yang ada di folder assets/audios/ dan berakhiran .mp3
       final List<String> mp3Paths = manifestMap.keys
           .where((String key) => key.contains('assets/audios/') && key.endsWith('.mp3'))
           .toList();
 
-      // 3. Ubah path file menjadi objek lagu (Title diambil dari nama file)
       final List<Map<String, String>> loadedSongs = mp3Paths.map((path) {
-        // Mengambil nama file saja: assets/audios/lagu_sasak.mp3 -> lagu_sasak
         String fileName = path.split('/').last.replaceAll('.mp3', '');
-        // Percantik tampilan: ganti underscore/strip jadi spasi dan huruf kapital
         String title = fileName.replaceAll('_', ' ').replaceAll('-', ' ');
         title = title[0].toUpperCase() + title.substring(1);
 
         return {
           "title": title,
-          "artist": "Musik Sasak", // Artis bisa diset default atau ambil dari meta nantinya
+          "artist": "Musik Sasak",
           "url": path,
+          // Menambahkan label kategori otomatis (Default: Sasak)
+          "category": path.contains('pop') ? "Pop" : "Sasak", 
         };
       }).toList();
 
@@ -62,15 +58,20 @@ class _HomeScreenState extends State<HomeScreen> {
         _isLoading = false;
       });
     } catch (e) {
-      debugPrint("Gagal baca aset: $e");
       setState(() => _isLoading = false);
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    // Filter pencarian
-    final filteredSongs = _allSongs.where((song) {
+    // 1. Filter berdasarkan KATEGORI yang dipilih (Sasak/Pop/Lainnya)
+    final categorySongs = _allSongs.where((song) {
+      if (widget.selectedCategory == "Lainnya") return true; // Tampilkan semua jika pilih 'Lainnya'
+      return song['category'] == widget.selectedCategory;
+    }).toList();
+
+    // 2. Filter berdasarkan PENCARIAN
+    final filteredSongs = categorySongs.where((song) {
       final title = song['title']!.toLowerCase();
       final query = _searchQuery.toLowerCase();
       return title.contains(query);
@@ -87,7 +88,7 @@ class _HomeScreenState extends State<HomeScreen> {
       child: Column(
         children: [
           const SizedBox(height: 20),
-          // Kolom Pencarian
+          // --- FITUR PENCARIAN ---
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16.0),
             child: TextField(
@@ -95,7 +96,7 @@ class _HomeScreenState extends State<HomeScreen> {
               onChanged: (value) => setState(() => _searchQuery = value),
               style: const TextStyle(color: Colors.white),
               decoration: InputDecoration(
-                hintText: "Cari lagu otomatis...",
+                hintText: "Cari lagu...",
                 prefixIcon: const Icon(Icons.search, color: Colors.redAccent),
                 filled: true,
                 fillColor: Colors.white.withOpacity(0.07),
@@ -104,31 +105,64 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ),
           const SizedBox(height: 20),
-          
+
+          // --- MENU KATEGORI YANG HILANG (DIKEMBALIKAN) ---
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16.0),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                _buildCategoryItem("Sasak", Icons.terrain, Colors.greenAccent),
+                _buildCategoryItem("Pop", Icons.music_note, Colors.orangeAccent),
+                _buildCategoryItem("Lainnya", Icons.library_music, Colors.blueAccent),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 25),
           Expanded(
             child: _isLoading 
               ? const Center(child: CircularProgressIndicator(color: Colors.redAccent))
-              : filteredSongs.isEmpty
-                ? const Center(child: Text("Tidak ada file .mp3 di assets/audios/", style: TextStyle(color: Colors.white54)))
-                : ListView.separated(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    itemCount: filteredSongs.length,
-                    separatorBuilder: (context, index) => const SizedBox(height: 10),
-                    itemBuilder: (context, index) {
-                      var song = filteredSongs[index];
-                      return ListTile(
-                        onTap: () => widget.onSongTap(song['title']!, song['artist']!, song['url']!),
-                        tileColor: Colors.white.withOpacity(0.05),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-                        leading: const Icon(Icons.music_note, color: Colors.redAccent),
-                        title: Text(song['title']!, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                        subtitle: Text(song['artist']!, style: const TextStyle(color: Colors.white60, fontSize: 12)),
-                        trailing: const Icon(Icons.play_circle_fill, color: Colors.redAccent),
-                      );
-                    },
-                  ),
+              : ListView.separated(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  itemCount: filteredSongs.length,
+                  separatorBuilder: (context, index) => const SizedBox(height: 10),
+                  itemBuilder: (context, index) {
+                    var song = filteredSongs[index];
+                    return ListTile(
+                      onTap: () => widget.onSongTap(song['title']!, song['artist']!, song['url']!),
+                      tileColor: Colors.white.withOpacity(0.05),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+                      leading: const Icon(Icons.play_circle_fill, color: Colors.redAccent, size: 40),
+                      title: Text(song['title']!, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                      subtitle: Text(song['artist']!, style: const TextStyle(color: Colors.white60)),
+                    );
+                  },
+                ),
           ),
           const SizedBox(height: 110),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCategoryItem(String name, IconData icon, Color color) {
+    bool isSelected = widget.selectedCategory == name;
+    return GestureDetector(
+      onTap: () => widget.onCategoryChanged(name),
+      child: Column(
+        children: [
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 300),
+            padding: const EdgeInsets.all(15),
+            decoration: BoxDecoration(
+              color: isSelected ? color : Colors.white.withOpacity(0.05),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Icon(icon, color: isSelected ? Colors.black : color, size: 28),
+          ),
+          const SizedBox(height: 8),
+          Text(name, style: TextStyle(color: isSelected ? Colors.white : Colors.white60, fontSize: 12)),
         ],
       ),
     );
