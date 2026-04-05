@@ -1,4 +1,4 @@
-name: Build Flutter Audio Player (Final Release)
+name: Build Flutter APK & AAB (Final Release)
 
 on:
   workflow_dispatch:
@@ -40,24 +40,29 @@ jobs:
       - name: Customize and Upgrade SDK
         run: |
           # 1. Ganti Nama Aplikasi di AndroidManifest
-          # Menggunakan sed yang lebih kuat untuk mencari tag label
           sed -i 's/android:label="[^"]*"/android:label="${{ github.event.inputs.app_name }}"/g' android/app/src/main/AndroidManifest.xml || true
           
           # 2. Ganti Package Name (ApplicationId)
           NEW_PKG="${{ github.event.inputs.package_name }}"
           sed -i "s/applicationId \".*\"/applicationId \"$NEW_PKG\"/g" android/app/build.gradle || true
           
-          # 3. UPGRADE SDK (PENTING agar tidak diblokir Play Protect)
+          # 3. UPGRADE SDK (PENTING: Agar tidak dianggap versi lama oleh Play Protect)
           sed -i "s/compileSdkVersion .*/compileSdkVersion 34/g" android/app/build.gradle || true
           sed -i "s/targetSdkVersion .*/targetSdkVersion 34/g" android/app/build.gradle || true
           sed -i "s/minSdkVersion .*/minSdkVersion 21/g" android/app/build.gradle || true
 
       - name: Build APK Release
-        # HAPUS --no-pub agar flutter memastikan library just_audio terpasang dengan benar
+        # Build APK universal dan split-per-abi
         run: flutter build apk --release --split-per-abi
 
-      - name: Upload APK Result
+      - name: Build AAB Release
+        # Build Android App Bundle untuk Play Store
+        run: flutter build appbundle --release
+
+      - name: Upload Build Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ github.event.inputs.app_name }}-Release-APK
-          path: build/app/outputs/flutter-apk/*.apk
+          name: ${{ github.event.inputs.app_name }}-Build-Results
+          path: |
+            build/app/outputs/flutter-apk/*.apk
+            build/app/outputs/bundle/release/*.aab
