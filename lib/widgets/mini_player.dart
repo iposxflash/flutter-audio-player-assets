@@ -1,35 +1,44 @@
 import 'package:flutter/material.dart';
+import 'package:just_audio/just_audio.dart';
 
 class MiniPlayer extends StatelessWidget {
-  const MiniPlayer({super.key});
+  final AudioPlayer player;
+  final String songTitle;
+
+  const MiniPlayer({super.key, required this.player, required this.songTitle});
 
   @override
   Widget build(BuildContext context) {
     return Container(
       height: 70,
       margin: const EdgeInsets.all(10),
-      padding: const EdgeInsets.symmetric(horizontal: 16),
+      padding: const EdgeInsets.symmetric(horizontal: 15),
       decoration: BoxDecoration(
-        color: Colors.redAccent,
+        color: Colors.red,
         borderRadius: BorderRadius.circular(15),
         boxShadow: [BoxShadow(color: Colors.black26, blurRadius: 10)],
       ),
       child: Row(
         children: [
-          const CircleAvatar(backgroundColor: Colors.white, child: Icon(Icons.music_note, color: Colors.red)),
-          const SizedBox(width: 15),
-          const Expanded(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text("Judul Lagu...", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                Text("Artis...", style: TextStyle(color: Colors.white70, fontSize: 12)),
-              ],
+          const Icon(Icons.play_circle, color: Colors.white, size: 40),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              songTitle,
+              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+              overflow: TextOverflow.ellipsis,
             ),
           ),
-          IconButton(onPressed: () {}, icon: const Icon(Icons.play_arrow, color: Colors.white, size: 30)),
-          IconButton(onPressed: () {}, icon: const Icon(Icons.close, color: Colors.white70)),
+          StreamBuilder<PlayerState>(
+            stream: player.playerStateStream,
+            builder: (context, snapshot) {
+              final playing = snapshot.data?.playing ?? false;
+              return IconButton(
+                icon: Icon(playing ? Icons.pause : Icons.play_arrow, color: Colors.white),
+                onPressed: () => playing ? player.pause() : player.play(),
+              );
+            },
+          ),
         ],
       ),
     );
