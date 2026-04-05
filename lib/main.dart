@@ -1,9 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:just_audio/just_audio.dart';
+import 'package:just_audio_background/just_audio_background.dart'; // Tambahkan ini
 import 'home_screen.dart'; 
 import 'widgets/mini_player.dart'; 
 
-void main() {
+// Ubah main menjadi async untuk inisialisasi background service
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  // INI KUNCINYA: Inisialisasi agar "tanda di atas" muncul
+  await JustAudioBackground.init(
+    androidNotificationChannelId: 'com.ojgrup.musiksasak.channel.audio',
+    androidNotificationChannelName: 'Musik Sasak Audio Playback',
+    androidNotificationOngoing: true, // Notifikasi tidak bisa dihapus saat musik jalan
+  );
+
   runApp(const MyApp());
 }
 
@@ -34,18 +45,31 @@ class MainLayout extends StatefulWidget {
 }
 
 class _MainLayoutState extends State<MainLayout> {
-  // Inisialisasi AudioPlayer tunggal agar bisa diakses di MiniPlayer
   final AudioPlayer _audioPlayer = AudioPlayer();
   
   String _selectedCategory = "Sasak";
   String _currentTitle = "Pilih Lagu Sasak";
   String _currentArtist = "Klik untuk memutar";
 
-  // Perbaikan: Menggunakan setAsset karena file ada di folder assets/audios/
+  // Perbaikan fungsi play agar data lagu terkirim ke sistem notifikasi Android
   void _playMusic(String title, String artist, String assetPath) async {
     try {
-      // PERBAIKAN: Gunakan setAsset bukan setUrl untuk file lokal
-      await _audioPlayer.setAsset(assetPath);
+      // PERBAIKAN: Gunakan AudioSource.asset agar notifikasi muncul
+      await _audioPlayer.setAudioSource(
+        AudioSource.asset(
+          assetPath,
+          tag: MediaItem(
+            // Data di bawah ini yang akan muncul di "Tanda di Atas"
+            id: assetPath, 
+            album: "Musik Sasak",
+            title: title,
+            artist: artist,
+            // Pastikan ada file logo di folder assets/images/
+            artUri: Uri.parse("asset:///assets/images/logo.png"), 
+          ),
+        ),
+      );
+      
       _audioPlayer.play();
       
       setState(() {
@@ -53,17 +77,16 @@ class _MainLayoutState extends State<MainLayout> {
         _currentArtist = artist;
       });
     } catch (e) {
-      debugPrint("Error memutar musik aset: $e");
-      // Tambahkan SnackBar jika file tidak ditemukan
+      debugPrint("Error memutar musik: $e");
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Gagal memutar: $title. Cek folder assets!")),
+        const SnackBar(content: Text("Gagal memutar musik. Cek file aset!")),
       );
     }
   }
 
   @override
   void dispose() {
-    _audioPlayer.dispose(); // Bersihkan memori saat aplikasi ditutup
+    _audioPlayer.dispose();
     super.dispose();
   }
 
@@ -72,23 +95,19 @@ class _MainLayoutState extends State<MainLayout> {
     return Scaffold(
       body: Stack(
         children: [
-          // 1. KONTEN UTAMA (HOME SCREEN)
           SafeArea(
-            bottom: false, // Biar konten bisa "mengalir" ke bawah MiniPlayer
+            bottom: false,
             child: HomeScreen(
               selectedCategory: _selectedCategory,
               onCategoryChanged: (newCategory) {
                 setState(() => _selectedCategory = newCategory);
               },
               onSongTap: (title, artist, assetPath) {
-                // Parameter 'url' diubah jadi 'assetPath' agar sesuai logika lokal
                 _playMusic(title, artist, assetPath);
               },
             ),
           ),
           
-          // 2. MINI PLAYER (Melayang di bawah)
-          // Dibungkus Padding agar tidak terlalu mepet ke bawah jika ada navigasi sistem
           Align(
             alignment: Alignment.bottomCenter,
             child: Padding(
