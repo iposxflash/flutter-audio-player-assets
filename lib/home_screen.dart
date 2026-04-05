@@ -1,17 +1,20 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:just_audio/just_audio.dart';
 
 class HomeScreen extends StatefulWidget {
   final String selectedCategory;
   final Function(String) onCategoryChanged;
   final Function(String title, String artist, String url) onSongTap;
+  final AudioPlayer player; // Kita butuh akses ke player untuk footer
 
   const HomeScreen({
     super.key,
     required this.selectedCategory,
     required this.onCategoryChanged,
     required this.onSongTap,
+    required this.player,
   });
 
   @override
@@ -24,6 +27,10 @@ class _HomeScreenState extends State<HomeScreen> {
   List<Map<String, String>> _allSongs = [];
   bool _isLoading = true;
 
+  // Data untuk footer (diambil otomatis saat lagu diklik)
+  String _currentTitle = "";
+  String _currentArtist = "";
+
   @override
   void initState() {
     super.initState();
@@ -35,18 +42,13 @@ class _HomeScreenState extends State<HomeScreen> {
       final manifestContent = await rootBundle.loadString('AssetManifest.json');
       final Map<String, dynamic> manifestMap = json.decode(manifestContent);
 
-      // Filter hanya file mp3 di folder audios
       final List<String> mp3Paths = manifestMap.keys
           .where((String key) => key.contains('assets/audios/') && key.endsWith('.mp3'))
           .toList();
 
       final List<Map<String, String>> loadedSongs = mp3Paths.map((path) {
-        // Decode path agar spasi (%20) kembali jadi spasi asli
         final String decodedPath = Uri.decodeComponent(path);
-        
         String fileName = decodedPath.split('/').last.replaceAll('.mp3', '');
-        
-        // Membersihkan judul dari karakter aneh (-, _, ( ), dll)
         String title = fileName.replaceAll(RegExp(r'[_\-\(\)]'), ' ').trim();
         
         if (title.isNotEmpty) {
@@ -56,8 +58,7 @@ class _HomeScreenState extends State<HomeScreen> {
         return {
           "title": title,
           "artist": "Sumbawa Music",
-          "url": decodedPath,
-          // Logika kategori: Cek kata 'dj' di nama file
+          "url": path,
           "category": decodedPath.toLowerCase().contains('dj') ? "DJ Sumbawa" : "Lagu Sumbawa", 
         };
       }).toList();
@@ -67,130 +68,141 @@ class _HomeScreenState extends State<HomeScreen> {
         _isLoading = false;
       });
     } catch (e) {
-      debugPrint("Error loading assets: $e");
       setState(() => _isLoading = false);
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    // 1. Filter Kategori
-    final categorySongs = _allSongs.where((song) {
-      return song['category'] == widget.selectedCategory;
+    final filteredSongs = _allSongs.where((song) {
+      final isCategory = song['category'] == widget.selectedCategory;
+      final isSearch = song['title']!.toLowerCase().contains(_searchQuery.toLowerCase());
+      return isCategory && isSearch;
     }).toList();
 
-    // 2. Filter Pencarian
-    final filteredSongs = categorySongs.where((song) {
-      final title = song['title']!.toLowerCase();
-      final query = _searchQuery.toLowerCase();
-      return title.contains(query);
-    }).toList();
-
-    return Container(
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [Color(0xFF1E1E1E), Color(0xFF121212)],
-        ),
-      ),
-      child: Column(
+    return Scaffold(
+      body: Stack(
         children: [
-          const SizedBox(height: 25),
-          
-          // --- 1. MENU KATEGORI (Hanya 2) ---
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16.0),
-            child: Row(
-              children: [
-                Expanded(child: _buildCategoryItem("Lagu Sumbawa", Icons.music_note, Colors.greenAccent)),
-                const SizedBox(width: 15),
-                Expanded(child: _buildCategoryItem("DJ Sumbawa", Icons.headphones, Colors.orangeAccent)),
-              ],
-            ),
-          ),
-
-          const SizedBox(height: 20),
-
-          // --- 2. KOLOM PENCARIAN ---
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16.0),
-            child: TextField(
-              controller: _searchController,
-              onChanged: (value) => setState(() => _searchQuery = value),
-              style: const TextStyle(color: Colors.white),
-              decoration: InputDecoration(
-                hintText: "Cari di ${widget.selectedCategory}...",
-                hintStyle: const TextStyle(color: Colors.white54, fontSize: 14),
-                prefixIcon: const Icon(Icons.search, color: Colors.redAccent, size: 20),
-                suffixIcon: _searchQuery.isNotEmpty 
-                  ? IconButton(
-                      icon: const Icon(Icons.clear, color: Colors.white38, size: 20),
-                      onPressed: () {
-                        _searchController.clear();
-                        setState(() => _searchQuery = "");
-                      },
-                    ) 
-                  : null,
-                filled: true,
-                fillColor: Colors.white.withOpacity(0.07),
-                contentPadding: const EdgeInsets.symmetric(vertical: 10),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(15),
-                  borderSide: BorderSide.none
-                ),
+          // 1. Background
+          Container(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [Color(0xFF1E1E1E), Color(0xFF121212)],
               ),
             ),
           ),
 
-          const SizedBox(height: 15),
-          
-          // --- 3. DAFTAR LAGU ---
-          Expanded(
-            child: _isLoading 
-              ? const Center(child: CircularProgressIndicator(color: Colors.redAccent))
-              : filteredSongs.isEmpty
-                ? Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.music_off, color: Colors.white12, size: 80),
-                        const SizedBox(height: 10),
-                        Text("Lagu tidak ditemukan", style: TextStyle(color: Colors.white38)),
-                      ],
-                    ),
-                  )
-                : ListView.separated(
-                    padding: const EdgeInsets.only(left: 16, right: 16, bottom: 20),
-                    itemCount: filteredSongs.length,
-                    separatorBuilder: (context, index) => const SizedBox(height: 8),
-                    itemBuilder: (context, index) {
-                      var song = filteredSongs[index];
-                      return ListTile(
-                        onTap: () => widget.onSongTap(song['title']!, song['artist']!, song['url']!),
-                        tileColor: Colors.white.withOpacity(0.05),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-                        leading: Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: Colors.redAccent.withOpacity(0.1),
-                            shape: BoxShape.circle,
-                          ),
-                          child: const Icon(Icons.play_arrow, color: Colors.redAccent),
-                        ),
-                        title: Text(
-                          song['title']!, 
-                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        subtitle: Text(song['artist']!, style: const TextStyle(color: Colors.white60, fontSize: 11)),
-                        trailing: const Icon(Icons.chevron_right, color: Colors.white24),
-                      );
-                    },
+          // 2. Konten Utama
+          Column(
+            children: [
+              const SizedBox(height: 50),
+              // KATEGORI
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                child: Row(
+                  children: [
+                    Expanded(child: _buildCategoryItem("Lagu Sumbawa", Icons.music_note, Colors.greenAccent)),
+                    const SizedBox(width: 15),
+                    Expanded(child: _buildCategoryItem("DJ Sumbawa", Icons.headphones, Colors.orangeAccent)),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 15),
+              // PENCARIAN
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                child: TextField(
+                  controller: _searchController,
+                  onChanged: (value) => setState(() => _searchQuery = value),
+                  style: const TextStyle(color: Colors.white),
+                  decoration: InputDecoration(
+                    hintText: "Cari lagu...",
+                    hintStyle: const TextStyle(color: Colors.white54, fontSize: 14),
+                    prefixIcon: const Icon(Icons.search, color: Colors.redAccent),
+                    filled: true,
+                    fillColor: Colors.white.withOpacity(0.07),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(15), borderSide: BorderSide.none),
                   ),
+                ),
+              ),
+              // LIST LAGU
+              Expanded(
+                child: _isLoading 
+                  ? const Center(child: CircularProgressIndicator(color: Colors.redAccent))
+                  : ListView.separated(
+                      padding: const EdgeInsets.only(left: 16, right: 16, bottom: 100),
+                      itemCount: filteredSongs.length,
+                      separatorBuilder: (context, index) => const SizedBox(height: 8),
+                      itemBuilder: (context, index) {
+                        var song = filteredSongs[index];
+                        return ListTile(
+                          onTap: () {
+                            setState(() {
+                              _currentTitle = song['title']!;
+                              _currentArtist = song['artist']!;
+                            });
+                            widget.onSongTap(song['title']!, song['artist']!, song['url']!);
+                          },
+                          tileColor: Colors.white.withOpacity(0.05),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+                          leading: const Icon(Icons.play_circle_fill, color: Colors.redAccent, size: 40),
+                          title: Text(song['title']!, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                          subtitle: Text(song['artist']!, style: const TextStyle(color: Colors.white60)),
+                        );
+                      },
+                    ),
+              ),
+            ],
           ),
-          const SizedBox(height: 110), 
+
+          // 3. FOOTER (MINI PLAYER) - Muncul jika ada lagu yang dipilih
+          if (_currentTitle.isNotEmpty)
+            Positioned(
+              bottom: 20,
+              left: 15,
+              right: 15,
+              child: _buildFooterPlayer(),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFooterPlayer() {
+    return Container(
+      height: 70,
+      padding: const EdgeInsets.symmetric(horizontal: 15),
+      decoration: BoxDecoration(
+        color: Colors.redAccent,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.4), blurRadius: 10, offset: const Offset(0, 5))],
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.music_note, color: Colors.white, size: 30),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(_currentTitle, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold), overflow: TextOverflow.ellipsis),
+                Text(_currentArtist, style: const TextStyle(color: Colors.white70, fontSize: 12)),
+              ],
+            ),
+          ),
+          StreamBuilder<PlayerState>(
+            stream: widget.player.playerStateStream,
+            builder: (context, snapshot) {
+              final playing = snapshot.data?.playing ?? false;
+              return IconButton(
+                icon: Icon(playing ? Icons.pause_circle_filled : Icons.play_circle_filled, color: Colors.white, size: 40),
+                onPressed: () => playing ? widget.player.pause() : widget.player.play(),
+              );
+            },
+          ),
         ],
       ),
     );
@@ -199,32 +211,20 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _buildCategoryItem(String name, IconData icon, Color color) {
     bool isSelected = widget.selectedCategory == name;
     return GestureDetector(
-      onTap: () {
-        _searchController.clear();
-        setState(() => _searchQuery = "");
-        widget.onCategoryChanged(name);
-      },
+      onTap: () => widget.onCategoryChanged(name),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 300),
         padding: const EdgeInsets.symmetric(vertical: 12),
         decoration: BoxDecoration(
           color: isSelected ? color : Colors.white.withOpacity(0.05),
           borderRadius: BorderRadius.circular(15),
-          boxShadow: isSelected ? [BoxShadow(color: color.withOpacity(0.3), blurRadius: 8, offset: const Offset(0, 4))] : [],
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(icon, color: isSelected ? Colors.black : color, size: 20),
             const SizedBox(width: 8),
-            Text(
-              name, 
-              style: TextStyle(
-                color: isSelected ? Colors.black : Colors.white, 
-                fontSize: 13, 
-                fontWeight: FontWeight.bold
-              )
-            ),
+            Text(name, style: TextStyle(color: isSelected ? Colors.black : Colors.white, fontSize: 13, fontWeight: FontWeight.bold)),
           ],
         ),
       ),
