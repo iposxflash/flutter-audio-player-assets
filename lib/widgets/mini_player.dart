@@ -4,26 +4,33 @@ import 'package:just_audio/just_audio.dart';
 class MiniPlayer extends StatelessWidget {
   final AudioPlayer player;
   final String songTitle;
-  final String artist; // Tambahkan ini
+  final String artist;
 
   const MiniPlayer({
-    super.key, 
-    required this.player, 
-    required this.songTitle, 
-    required this.artist, // Tambahkan ini
+    super.key,
+    required this.player,
+    required this.songTitle,
+    required this.artist,
   });
 
   @override
   Widget build(BuildContext context) {
+    // Mini Player hanya muncul jika sudah ada lagu yang dipilih
+    if (songTitle == "Pilih Lagu") return const SizedBox.shrink();
+
     return Container(
       height: 75,
-      margin: const EdgeInsets.all(10),
+      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       padding: const EdgeInsets.symmetric(horizontal: 15),
       decoration: BoxDecoration(
         color: Colors.redAccent,
-        borderRadius: BorderRadius.circular(15),
+        borderRadius: BorderRadius.circular(20),
         boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.2), blurRadius: 10, offset: const Offset(0, -2))
+          BoxShadow(
+            color: Colors.black.withOpacity(0.3),
+            blurRadius: 15,
+            offset: const Offset(0, 5),
+          )
         ],
       ),
       child: Row(
@@ -56,7 +63,7 @@ class MiniPlayer extends StatelessWidget {
                 icon: Icon(
                   playing ? Icons.pause_circle_filled : Icons.play_circle_filled,
                   color: Colors.white,
-                  size: 40,
+                  size: 45,
                 ),
                 onPressed: () => playing ? player.pause() : player.play(),
               );
