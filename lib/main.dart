@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:just_audio/just_audio.dart';
-import 'home_screen.dart'; // Sesuaikan path jika di folder screens/
-import 'widgets/mini_player.dart'; // Sesuaikan path jika di folder widgets/
+import 'home_screen.dart'; 
+import 'widgets/mini_player.dart'; 
 
 void main() {
   runApp(const MyApp());
@@ -17,6 +17,7 @@ class MyApp extends StatelessWidget {
       title: 'Musik Sasak',
       theme: ThemeData(
         brightness: Brightness.dark,
+        scaffoldBackgroundColor: const Color(0xFF121212), // Warna gelap pekat
         primaryColor: Colors.redAccent,
         useMaterial3: true,
       ),
@@ -35,12 +36,10 @@ class MainLayout extends StatefulWidget {
 class _MainLayoutState extends State<MainLayout> {
   final AudioPlayer _audioPlayer = AudioPlayer();
   
-  // State untuk mengontrol data dari HomeScreen
   String _selectedCategory = "Sasak";
   String _currentTitle = "Pilih Lagu";
   String _currentArtist = "Klik untuk memutar";
 
-  // Fungsi untuk memutar lagu yang dipanggil dari HomeScreen
   void _playMusic(String title, String artist, String url) async {
     try {
       await _audioPlayer.setUrl(url);
@@ -50,7 +49,7 @@ class _MainLayoutState extends State<MainLayout> {
         _currentArtist = artist;
       });
     } catch (e) {
-      debugPrint("Error playing audio: $e");
+      debugPrint("Error: $e");
     }
   }
 
@@ -63,21 +62,24 @@ class _MainLayoutState extends State<MainLayout> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      // Menggunakan Stack agar MiniPlayer melayang di atas konten
+      // Menggunakan Stack untuk melapis konten dan player
       body: Stack(
         children: [
           // 1. HOME SCREEN (Konten Utama)
-          HomeScreen(
-            selectedCategory: _selectedCategory,
-            onCategoryChanged: (newCategory) {
-              setState(() => _selectedCategory = newCategory);
-            },
-            onSongTap: (title, artist, url) {
-              _playMusic(title, artist, url);
-            },
+          // Membungkus dengan SafeArea agar tidak tertutup notch/status bar
+          SafeArea(
+            child: HomeScreen(
+              selectedCategory: _selectedCategory,
+              onCategoryChanged: (newCategory) {
+                setState(() => _selectedCategory = newCategory);
+              },
+              onSongTap: (title, artist, url) {
+                _playMusic(title, artist, url);
+              },
+            ),
           ),
           
-          // 2. MINI PLAYER (Footer)
+          // 2. MINI PLAYER (Melayang di bawah)
           Align(
             alignment: Alignment.bottomCenter,
             child: MiniPlayer(
