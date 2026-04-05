@@ -1,149 +1,210 @@
 import 'package:flutter/material.dart';
 
-class HomeScreen extends StatefulWidget {
-  // Tambahkan callback agar saat lagu diklik, main.dart tahu lagu apa yang diputar
-  final Function(String title, String artist, String url) onSongTap;
+class HomeScreen extends StatelessWidget {
   final String selectedCategory;
   final Function(String) onCategoryChanged;
+  final Function(String title, String artist, String url) onSongTap;
 
-  const HomeScreen({
-    super.key, 
-    required this.onSongTap,
+  HomeScreen({
+    super.key,
     required this.selectedCategory,
     required this.onCategoryChanged,
+    required this.onSongTap,
   });
 
-  @override
-  State<HomeScreen> createState() => _HomeScreenState();
-}
-
-class _HomeScreenState extends State<HomeScreen> {
-  // Data lagu tetap di sini atau bisa dipindah ke model terpisah
+  // Data lagu menggunakan URL streaming agar bisa langsung dicoba
   final Map<String, List<Map<String, String>>> songs = {
     "Sasak": [
-      {"title": "Kadal Nongaq", "artist": "Artis Sasak 1", "url": "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3"},
-      {"title": "Lalo Nganteni", "artist": "Artis Sasak 2", "url": "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3"},
+      {
+        "title": "Kadal Nongaq",
+        "artist": "Artis Sasak 1",
+        "url": "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3"
+      },
+      {
+        "title": "Lalo Nganteni",
+        "artist": "Artis Sasak 2",
+        "url": "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3"
+      },
     ],
     "Pop": [
-      {"title": "Lagu Pop 1", "artist": "Penyanyi Pop", "url": "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3"},
+      {
+        "title": "Lagu Pop 1",
+        "artist": "Penyanyi Pop",
+        "url": "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3"
+      },
     ],
     "Lainnya": [
-      {"title": "Instrumen Gamelan", "artist": "Tradisional", "url": "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-4.mp3"},
+      {
+        "title": "Instrumen Gamelan",
+        "artist": "Tradisional",
+        "url": "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-4.mp3"
+      },
     ],
   };
 
   @override
   Widget build(BuildContext context) {
-    // Gunakan widget.selectedCategory karena state dikontrol dari main.dart
-    final currentSongs = songs[widget.selectedCategory] ?? [];
+    final currentSongs = songs[selectedCategory] ?? [];
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const SizedBox(height: 10),
-        // Bagian 1: 3 Kategori
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16.0),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              _buildCategoryItem("Sasak", Icons.terrain, Colors.green),
-              _buildCategoryItem("Pop", Icons.music_note, Colors.orange),
-              _buildCategoryItem("Lainnya", Icons.library_music, Colors.blue),
-            ],
-          ),
+    return Container(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [Color(0xFF1E1E1E), Color(0xFF121212)],
         ),
-        const SizedBox(height: 25),
-        const Padding(
-          padding: EdgeInsets.symmetric(horizontal: 16.0),
-          child: Text(
-            "Daftar Lagu", 
-            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.black87)
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const SizedBox(height: 15),
+          // --- BAGIAN KATEGORI (HORIZONTAL) ---
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16.0),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                _buildCategoryItem("Sasak", Icons.terrain, Colors.greenAccent),
+                _buildCategoryItem("Pop", Icons.music_note, Colors.orangeAccent),
+                _buildCategoryItem("Lainnya", Icons.library_music, Colors.blueAccent),
+              ],
+            ),
           ),
-        ),
-        const SizedBox(height: 10),
-
-        // Bagian 2: List Lagu
-        Expanded(
-          child: ListView.builder(
-            padding: const EdgeInsets.symmetric(horizontal: 8),
-            itemCount: currentSongs.length,
-            itemBuilder: (context, index) {
-              var song = currentSongs[index];
-              return Card(
-                elevation: 0,
-                color: Colors.grey[50],
-                margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                child: ListTile(
-                  leading: Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: Colors.red.withOpacity(0.1),
-                      shape: BoxShape.circle,
+          const SizedBox(height: 30),
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 20.0),
+            child: Text(
+              "Daftar Lagu",
+              style: TextStyle(
+                fontSize: 22,
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+                letterSpacing: 1,
+              ),
+            ),
+          ),
+          const SizedBox(height: 15),
+          // --- DAFTAR LAGU (RESPONSIF) ---
+          Expanded(
+            child: ListView.separated(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              itemCount: currentSongs.length,
+              separatorBuilder: (context, index) => const SizedBox(height: 10),
+              itemBuilder: (context, index) {
+                var song = currentSongs[index];
+                return AnimatedContainer(
+                  duration: const Duration(milliseconds: 300),
+                  child: Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(15),
+                      onTap: () => onSongTap(
+                        song['title']!,
+                        song['artist']!,
+                        song['url']!,
+                      ),
+                      child: Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.05),
+                          borderRadius: BorderRadius.circular(15),
+                          border: Border.all(
+                            color: Colors.white.withOpacity(0.1),
+                            width: 1,
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            Container(
+                              height: 50,
+                              width: 50,
+                              decoration: BoxDecoration(
+                                color: Colors.redAccent.withOpacity(0.2),
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: const Icon(Icons.play_arrow_rounded,
+                                  color: Colors.redAccent, size: 30),
+                            ),
+                            const SizedBox(width: 15),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    song['title']!,
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    song['artist']!,
+                                    style: TextStyle(
+                                      color: Colors.white.withOpacity(0.6),
+                                      fontSize: 13,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            Icon(Icons.more_vert,
+                                color: Colors.white.withOpacity(0.5)),
+                          ],
+                        ),
+                      ),
                     ),
-                    child: const Icon(Icons.play_arrow, color: Colors.red),
                   ),
-                  title: Text(
-                    song['title']!, 
-                    style: const TextStyle(fontWeight: FontWeight.w600)
-                  ),
-                  subtitle: Text(song['artist']!),
-                  trailing: const Icon(Icons.more_vert, color: Colors.grey),
-                  onTap: () {
-                    // Panggil fungsi play yang ada di main.dart
-                    widget.onSongTap(
-                      song['title']!, 
-                      song['artist']!, 
-                      song['url']!
-                    );
-                  },
-                ),
-              );
-            },
+                );
+              },
+            ),
           ),
-        ),
-        // Beri space agar tidak tertutup Mini Player
-        const SizedBox(height: 90),
-      ],
+          // --- RUANG KOSONG (PENTING) ---
+          // SizedBox ini memastikan lagu terbawah bisa di-scroll melewati MiniPlayer
+          const SizedBox(height: 110),
+        ],
+      ),
     );
   }
 
   Widget _buildCategoryItem(String name, IconData icon, Color color) {
-    bool isSelected = widget.selectedCategory == name;
+    bool isSelected = selectedCategory == name;
     return GestureDetector(
-      onTap: () => widget.onCategoryChanged(name),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeInOut,
-        child: Column(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(15),
-              decoration: BoxDecoration(
-                color: isSelected ? color : color.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(22),
-                boxShadow: isSelected 
-                    ? [BoxShadow(color: color.withOpacity(0.3), blurRadius: 12, offset: const Offset(0, 4))] 
-                    : [],
-              ),
-              child: Icon(
-                icon, 
-                color: isSelected ? Colors.white : color, 
-                size: 32
-              ),
+      onTap: () => onCategoryChanged(name),
+      child: Column(
+        children: [
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 400),
+            padding: const EdgeInsets.all(15),
+            decoration: BoxDecoration(
+              color: isSelected ? color : Colors.white.withOpacity(0.05),
+              borderRadius: BorderRadius.circular(20),
+              boxShadow: isSelected
+                  ? [
+                      BoxShadow(
+                          color: color.withOpacity(0.3),
+                          blurRadius: 15,
+                          offset: const Offset(0, 5))
+                    ]
+                  : [],
             ),
-            const SizedBox(height: 10),
-            Text(
-              name, 
-              style: TextStyle(
-                fontSize: 14,
-                color: isSelected ? Colors.black : Colors.grey[600],
-                fontWeight: isSelected ? FontWeight.bold : FontWeight.w500
-              )
+            child: Icon(
+              icon,
+              color: isSelected ? Colors.black87 : color,
+              size: 28,
             ),
-          ],
-        ),
+          ),
+          const SizedBox(height: 10),
+          Text(
+            name,
+            style: TextStyle(
+              fontSize: 13,
+              color: isSelected ? Colors.white : Colors.white60,
+              fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+            ),
+          ),
+        ],
       ),
     );
   }
