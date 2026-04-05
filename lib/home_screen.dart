@@ -40,16 +40,22 @@ class _HomeScreenState extends State<HomeScreen> {
           .toList();
 
       final List<Map<String, String>> loadedSongs = mp3Paths.map((path) {
-        String fileName = path.split('/').last.replaceAll('.mp3', '');
+        // Decode path agar spasi (%20) kembali jadi spasi asli
+        final String decodedPath = Uri.decodeComponent(path);
+        
+        String fileName = decodedPath.split('/').last.replaceAll('.mp3', '');
         String title = fileName.replaceAll('_', ' ').replaceAll('-', ' ');
-        title = title[0].toUpperCase() + title.substring(1);
+        
+        if (title.isNotEmpty) {
+          title = title[0].toUpperCase() + title.substring(1);
+        }
 
         return {
           "title": title,
-          "artist": "Musik Sasak",
-          "url": path,
-          // Menambahkan label kategori otomatis (Default: Sasak)
-          "category": path.contains('pop') ? "Pop" : "Sasak", 
+          "artist": "Sumbawa Music",
+          "url": decodedPath,
+          // LOGIKA KATEGORI: Jika nama file ada kata 'dj', masuk ke 'DJ Sumbawa'
+          "category": decodedPath.toLowerCase().contains('dj') ? "DJ Sumbawa" : "Lagu Sumbawa", 
         };
       }).toList();
 
@@ -58,19 +64,19 @@ class _HomeScreenState extends State<HomeScreen> {
         _isLoading = false;
       });
     } catch (e) {
+      debugPrint("Error loading assets: $e");
       setState(() => _isLoading = false);
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    // 1. Filter berdasarkan KATEGORI yang dipilih (Sasak/Pop/Lainnya)
+    // 1. Filter Kategori
     final categorySongs = _allSongs.where((song) {
-      if (widget.selectedCategory == "Lainnya") return true; // Tampilkan semua jika pilih 'Lainnya'
       return song['category'] == widget.selectedCategory;
     }).toList();
 
-    // 2. Filter berdasarkan PENCARIAN
+    // 2. Filter Pencarian
     final filteredSongs = categorySongs.where((song) {
       final title = song['title']!.toLowerCase();
       final query = _searchQuery.toLowerCase();
@@ -87,8 +93,23 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
       child: Column(
         children: [
+          const SizedBox(height: 25),
+          
+          // --- 1. MENU KATEGORI (Hanya 2 Kategori) ---
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 30.0),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: [
+                _buildCategoryItem("Lagu Sumbawa", Icons.music_note, Colors.greenAccent),
+                _buildCategoryItem("DJ Sumbawa", Icons.headphones, Colors.orangeAccent),
+              ],
+            ),
+          ),
+
           const SizedBox(height: 20),
-          // --- FITUR PENCARIAN ---
+
+          // --- 2. KOLOM PENCARIAN (Sekarang di bawah kategori) ---
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16.0),
             child: TextField(
@@ -96,51 +117,55 @@ class _HomeScreenState extends State<HomeScreen> {
               onChanged: (value) => setState(() => _searchQuery = value),
               style: const TextStyle(color: Colors.white),
               decoration: InputDecoration(
-                hintText: "Cari lagu...",
-                prefixIcon: const Icon(Icons.search, color: Colors.redAccent),
+                hintText: "Cari di ${widget.selectedCategory}...",
+                hintStyle: const TextStyle(color: Colors.white54, fontSize: 14),
+                prefixIcon: const Icon(Icons.search, color: Colors.redAccent, size: 20),
                 filled: true,
                 fillColor: Colors.white.withOpacity(0.07),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(30), borderSide: BorderSide.none),
+                contentPadding: const EdgeInsets.symmetric(vertical: 10),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(15),
+                  borderSide: BorderSide.none
+                ),
               ),
-            ),
-          ),
-          const SizedBox(height: 20),
-
-          // --- MENU KATEGORI YANG HILANG (DIKEMBALIKAN) ---
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16.0),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                _buildCategoryItem("Sasak", Icons.terrain, Colors.greenAccent),
-                _buildCategoryItem("Pop", Icons.music_note, Colors.orangeAccent),
-                _buildCategoryItem("Lainnya", Icons.library_music, Colors.blueAccent),
-              ],
             ),
           ),
 
           const SizedBox(height: 25),
+          
+          // --- 3. DAFTAR LAGU ---
           Expanded(
             child: _isLoading 
               ? const Center(child: CircularProgressIndicator(color: Colors.redAccent))
-              : ListView.separated(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  itemCount: filteredSongs.length,
-                  separatorBuilder: (context, index) => const SizedBox(height: 10),
-                  itemBuilder: (context, index) {
-                    var song = filteredSongs[index];
-                    return ListTile(
-                      onTap: () => widget.onSongTap(song['title']!, song['artist']!, song['url']!),
-                      tileColor: Colors.white.withOpacity(0.05),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-                      leading: const Icon(Icons.play_circle_fill, color: Colors.redAccent, size: 40),
-                      title: Text(song['title']!, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                      subtitle: Text(song['artist']!, style: const TextStyle(color: Colors.white60)),
-                    );
-                  },
-                ),
+              : filteredSongs.isEmpty
+                ? const Center(child: Text("Belum ada lagu di kategori ini", style: TextStyle(color: Colors.white54)))
+                : ListView.separated(
+                    padding: const EdgeInsets.only(left: 16, right: 16, bottom: 20),
+                    itemCount: filteredSongs.length,
+                    separatorBuilder: (context, index) => const SizedBox(height: 10),
+                    itemBuilder: (context, index) {
+                      var song = filteredSongs[index];
+                      return ListTile(
+                        onTap: () => widget.onSongTap(song['title']!, song['artist']!, song['url']!),
+                        tileColor: Colors.white.withOpacity(0.05),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+                        leading: CircleAvatar(
+                          backgroundColor: Colors.redAccent.withOpacity(0.8),
+                          child: const Icon(Icons.play_arrow, color: Colors.white),
+                        ),
+                        title: Text(
+                          song['title']!, 
+                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        subtitle: Text(song['artist']!, style: const TextStyle(color: Colors.white60, fontSize: 12)),
+                        trailing: const Icon(Icons.more_vert, color: Colors.white38),
+                      );
+                    },
+                  ),
           ),
-          const SizedBox(height: 110),
+          const SizedBox(height: 110), 
         ],
       ),
     );
@@ -149,20 +174,32 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _buildCategoryItem(String name, IconData icon, Color color) {
     bool isSelected = widget.selectedCategory == name;
     return GestureDetector(
-      onTap: () => widget.onCategoryChanged(name),
+      onTap: () {
+        _searchController.clear();
+        setState(() => _searchQuery = "");
+        widget.onCategoryChanged(name);
+      },
       child: Column(
         children: [
           AnimatedContainer(
             duration: const Duration(milliseconds: 300),
-            padding: const EdgeInsets.all(15),
+            padding: const EdgeInsets.symmetric(horizontal: 25, vertical: 15),
             decoration: BoxDecoration(
               color: isSelected ? color : Colors.white.withOpacity(0.05),
-              borderRadius: BorderRadius.circular(20),
+              borderRadius: BorderRadius.circular(15),
+              boxShadow: isSelected ? [BoxShadow(color: color.withOpacity(0.2), blurRadius: 10)] : [],
             ),
-            child: Icon(icon, color: isSelected ? Colors.black : color, size: 28),
+            child: Icon(icon, color: isSelected ? Colors.black : color, size: 30),
           ),
           const SizedBox(height: 8),
-          Text(name, style: TextStyle(color: isSelected ? Colors.white : Colors.white60, fontSize: 12)),
+          Text(
+            name, 
+            style: TextStyle(
+              color: isSelected ? Colors.white : Colors.white60, 
+              fontSize: 12, 
+              fontWeight: isSelected ? FontWeight.bold : FontWeight.normal
+            )
+          ),
         ],
       ),
     );
