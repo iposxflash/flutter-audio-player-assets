@@ -5,14 +5,12 @@ import 'home_screen.dart';
 import 'widgets/mini_player.dart'; 
 
 Future<void> main() async {
-  // Pastikan binding siap agar tidak blank putih
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Inisialisasi notifikasi kontrol musik
   try {
     await JustAudioBackground.init(
-      androidNotificationChannelId: 'com.ojgrup.musiksasak.channel.audio',
-      androidNotificationChannelName: 'Musik Sasak Audio Playback',
+      androidNotificationChannelId: 'com.ojgrup.musiksasak.audio', // ID unik channel
+      androidNotificationChannelName: 'Musik Sasak Playback',
       androidNotificationOngoing: true,
     );
   } catch (e) {
@@ -51,13 +49,13 @@ class MainLayout extends StatefulWidget {
 class _MainLayoutState extends State<MainLayout> {
   final AudioPlayer _audioPlayer = AudioPlayer();
   
-  String _selectedCategory = "Sasak";
-  String _currentTitle = "Pilih Lagu Sasak";
+  // PERBAIKAN: Default category disesuaikan dengan home_screen.dart
+  String _selectedCategory = "Lagu Sumbawa"; 
+  String _currentTitle = "Pilih Lagu";
   String _currentArtist = "Klik untuk memutar";
 
   void _playMusic(String title, String artist, String assetPath) async {
     try {
-      // Setup audio source dengan metadata untuk notifikasi
       await _audioPlayer.setAudioSource(
         AudioSource.asset(
           assetPath,
@@ -66,7 +64,7 @@ class _MainLayoutState extends State<MainLayout> {
             album: "Musik Sasak",
             title: title,
             artist: artist,
-            // Hapus baris artUri di bawah jika file logo.png belum ada di assets/images/
+            // Jika logo.png belum ada di assets/images/, baris artUri di bawah bisa dihapus dulu
             artUri: Uri.parse("asset:///assets/images/logo.png"), 
           ),
         ),
@@ -81,7 +79,7 @@ class _MainLayoutState extends State<MainLayout> {
     } catch (e) {
       debugPrint("Error playback: $e");
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Error: File audio tidak ditemukan atau rusak")),
+        const SnackBar(content: Text("Error: File audio tidak ditemukan atau rusak")),
       );
     }
   }
@@ -110,7 +108,6 @@ class _MainLayoutState extends State<MainLayout> {
             ),
           ),
           
-          // Mini Player melayang di bawah
           Align(
             alignment: Alignment.bottomCenter,
             child: Padding(
