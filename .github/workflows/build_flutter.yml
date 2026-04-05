@@ -32,29 +32,29 @@ jobs:
           channel: 'stable'
           cache: true
 
-      - name: Install Dependencies
-        run: flutter pub get
+      - name: Clean and Get Dependencies
+        run: |
+          flutter clean
+          flutter pub get
 
       - name: Customize and Upgrade SDK
         run: |
           # 1. Ganti Nama Aplikasi di AndroidManifest
-          sed -i 's/android:label=".*"/android:label="${{ github.event.inputs.app_name }}"/g' android/app/src/main/AndroidManifest.xml || true
+          # Menggunakan sed yang lebih kuat untuk mencari tag label
+          sed -i 's/android:label="[^"]*"/android:label="${{ github.event.inputs.app_name }}"/g' android/app/src/main/AndroidManifest.xml || true
           
-          # 2. Ganti Package Name
+          # 2. Ganti Package Name (ApplicationId)
           NEW_PKG="${{ github.event.inputs.package_name }}"
           sed -i "s/applicationId \".*\"/applicationId \"$NEW_PKG\"/g" android/app/build.gradle || true
           
-          # 3. UPGRADE SDK (Kunci agar tidak diblokir Play Protect)
-          # Kita paksa naik ke API 34 (Android 14)
+          # 3. UPGRADE SDK (PENTING agar tidak diblokir Play Protect)
           sed -i "s/compileSdkVersion .*/compileSdkVersion 34/g" android/app/build.gradle || true
           sed -i "s/targetSdkVersion .*/targetSdkVersion 34/g" android/app/build.gradle || true
           sed -i "s/minSdkVersion .*/minSdkVersion 21/g" android/app/build.gradle || true
-          
-          # 4. Matikan Analisis agar build lebih cepat
-          flutter analyze || true
 
       - name: Build APK Release
-        run: flutter build apk --release --split-per-abi --no-pub
+        # HAPUS --no-pub agar flutter memastikan library just_audio terpasang dengan benar
+        run: flutter build apk --release --split-per-abi
 
       - name: Upload APK Result
         uses: actions/upload-artifact@v4
