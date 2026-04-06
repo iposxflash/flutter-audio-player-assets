@@ -7,7 +7,7 @@ class HomeScreen extends StatefulWidget {
   final String selectedCategory;
   final Function(String) onCategoryChanged;
   final Function(String title, String artist, String url) onSongTap;
-  final AudioPlayer player; // Kita butuh akses ke player untuk footer
+  final AudioPlayer player;
 
   const HomeScreen({
     super.key,
@@ -27,7 +27,6 @@ class _HomeScreenState extends State<HomeScreen> {
   List<Map<String, String>> _allSongs = [];
   bool _isLoading = true;
 
-  // Data untuk footer (diambil otomatis saat lagu diklik)
   String _currentTitle = "";
   String _currentArtist = "";
 
@@ -39,16 +38,23 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _loadAssets() async {
     try {
+      // 1. Ambil daftar isi aset otomatis
       final manifestContent = await rootBundle.loadString('AssetManifest.json');
       final Map<String, dynamic> manifestMap = json.decode(manifestContent);
 
+      // 2. Filter hanya file mp3 di folder audios
       final List<String> mp3Paths = manifestMap.keys
-          .where((String key) => key.contains('assets/audios/') && key.endsWith('.mp3'))
+          .where((String key) => key.contains('assets/audios/') && key.toLowerCase().endsWith('.mp3'))
           .toList();
 
       final List<Map<String, String>> loadedSongs = mp3Paths.map((path) {
-        final String decodedPath = Uri.decodeComponent(path);
+        // --- KUNCI AGAR TIDAK ERROR ---
+        // Kita decode path-nya supaya karakter %20 (spasi) hilang dan jadi spasi asli
+        final String decodedPath = Uri.decodeFull(path);
+        
         String fileName = decodedPath.split('/').last.replaceAll('.mp3', '');
+        
+        // Buat judul bersih untuk tampilan di layar (UI)
         String title = fileName.replaceAll(RegExp(r'[_\-\(\)]'), ' ').trim();
         
         if (title.isNotEmpty) {
@@ -58,7 +64,7 @@ class _HomeScreenState extends State<HomeScreen> {
         return {
           "title": title,
           "artist": "Sumbawa Music",
-          "url": path,
+          "url": decodedPath, // Kirim alamat yang sudah bersih dari %20
           "category": decodedPath.toLowerCase().contains('dj') ? "DJ Sumbawa" : "Lagu Sumbawa", 
         };
       }).toList();
@@ -68,12 +74,14 @@ class _HomeScreenState extends State<HomeScreen> {
         _isLoading = false;
       });
     } catch (e) {
+      debugPrint("Gagal load lagu: $e");
       setState(() => _isLoading = false);
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    // Filter Kategori & Search
     final filteredSongs = _allSongs.where((song) {
       final isCategory = song['category'] == widget.selectedCategory;
       final isSearch = song['title']!.toLowerCase().contains(_searchQuery.toLowerCase());
@@ -81,9 +89,10 @@ class _HomeScreenState extends State<HomeScreen> {
     }).toList();
 
     return Scaffold(
+      backgroundColor: Colors.transparent,
       body: Stack(
         children: [
-          // 1. Background
+          // Background Gradient
           Container(
             decoration: const BoxDecoration(
               gradient: LinearGradient(
@@ -94,7 +103,7 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ),
 
-          // 2. Konten Utama
+          // Konten Utama
           Column(
             children: [
               const SizedBox(height: 50),
@@ -118,7 +127,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   onChanged: (value) => setState(() => _searchQuery = value),
                   style: const TextStyle(color: Colors.white),
                   decoration: InputDecoration(
-                    hintText: "Cari lagu...",
+                    hintText: "Cari lagu di ${widget.selectedCategory}...",
                     hintStyle: const TextStyle(color: Colors.white54, fontSize: 14),
                     prefixIcon: const Icon(Icons.search, color: Colors.redAccent),
                     filled: true,
@@ -132,7 +141,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 child: _isLoading 
                   ? const Center(child: CircularProgressIndicator(color: Colors.redAccent))
                   : ListView.separated(
-                      padding: const EdgeInsets.only(left: 16, right: 16, bottom: 100),
+                      padding: const EdgeInsets.only(left: 16, right: 16, bottom: 120),
                       itemCount: filteredSongs.length,
                       separatorBuilder: (context, index) => const SizedBox(height: 8),
                       itemBuilder: (context, index) {
@@ -148,7 +157,12 @@ class _HomeScreenState extends State<HomeScreen> {
                           tileColor: Colors.white.withOpacity(0.05),
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
                           leading: const Icon(Icons.play_circle_fill, color: Colors.redAccent, size: 40),
-                          title: Text(song['title']!, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                          title: Text(
+                            song['title']!, 
+                            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
                           subtitle: Text(song['artist']!, style: const TextStyle(color: Colors.white60)),
                         );
                       },
@@ -157,7 +171,7 @@ class _HomeScreenState extends State<HomeScreen> {
             ],
           ),
 
-          // 3. FOOTER (MINI PLAYER) - Muncul jika ada lagu yang dipilih
+          // FOOTER (MINI PLAYER)
           if (_currentTitle.isNotEmpty)
             Positioned(
               bottom: 20,
@@ -188,8 +202,8 @@ class _HomeScreenState extends State<HomeScreen> {
               mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(_currentTitle, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold), overflow: TextOverflow.ellipsis),
-                Text(_currentArtist, style: const TextStyle(color: Colors.white70, fontSize: 12)),
+                Text(_currentTitle, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14), overflow: TextOverflow.ellipsis),
+                Text(_currentArtist, style: const TextStyle(color: Colors.white70, fontSize: 11)),
               ],
             ),
           ),
@@ -197,6 +211,12 @@ class _HomeScreenState extends State<HomeScreen> {
             stream: widget.player.playerStateStream,
             builder: (context, snapshot) {
               final playing = snapshot.data?.playing ?? false;
+              final state = snapshot.data?.processingState;
+
+              if (state == ProcessingState.loading || state == ProcessingState.buffering) {
+                return const SizedBox(width: 30, height: 30, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 3));
+              }
+
               return IconButton(
                 icon: Icon(playing ? Icons.pause_circle_filled : Icons.play_circle_filled, color: Colors.white, size: 40),
                 onPressed: () => playing ? widget.player.pause() : widget.player.play(),
@@ -211,7 +231,11 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _buildCategoryItem(String name, IconData icon, Color color) {
     bool isSelected = widget.selectedCategory == name;
     return GestureDetector(
-      onTap: () => widget.onCategoryChanged(name),
+      onTap: () {
+        _searchController.clear();
+        setState(() => _searchQuery = "");
+        widget.onCategoryChanged(name);
+      },
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 300),
         padding: const EdgeInsets.symmetric(vertical: 12),
