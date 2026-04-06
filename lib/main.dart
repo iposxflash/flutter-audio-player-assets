@@ -2,13 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:just_audio_background/just_audio_background.dart';
 import 'home_screen.dart'; 
-// import 'widgets/mini_player.dart'; // Hapus ini jika footer sudah ada di dalam home_screen
 
 Future<void> main() async {
-  // 1. WAJIB: Agar aplikasi tidak blank saat start
+  // 1. Agar aplikasi tidak blank saat start
   WidgetsFlutterBinding.ensureInitialized();
 
-  // 2. Inisialisasi notifikasi kontrol musik di bar atas
+  // 2. Inisialisasi notifikasi kontrol musik
   try {
     await JustAudioBackground.init(
       androidNotificationChannelId: 'com.ojgrup.musiksasak.audio', 
@@ -50,33 +49,37 @@ class MainLayout extends StatefulWidget {
 
 class _MainLayoutState extends State<MainLayout> {
   final AudioPlayer _audioPlayer = AudioPlayer();
-  
   String _selectedCategory = "Lagu Sumbawa"; 
 
-  // Fungsi untuk memutar musik
+  // --- PERBAIKAN FUNGSI PUTAR MUSIK ---
   void _playMusic(String title, String artist, String assetPath) async {
     try {
+      // Kita pastikan path dibersihkan lagi sebelum dikirim ke player
+      final String cleanAssetPath = assetPath.trim();
+
       await _audioPlayer.setAudioSource(
-        AudioSource.asset(
-          assetPath,
+        AudioSource.uri(
+          // Gunakan Uri.parse dengan skema asset:/// agar lebih kompatibel dengan nama file panjang
+          Uri.parse('asset:///$cleanAssetPath'),
           tag: MediaItem(
-            id: assetPath, 
+            id: cleanAssetPath, 
             album: "Sumbawa Music",
             title: title,
             artist: artist,
-            // Pastikan file ini ada di assets/images/logo.png
             artUri: Uri.parse("asset:///assets/images/logo.png"), 
           ),
         ),
       );
+      
       _audioPlayer.play();
     } catch (e) {
       debugPrint("Error playback: $e");
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text("Error: File audio tidak ditemukan atau rusak"),
+          SnackBar(
+            content: Text("Gagal memutar: $title"),
             backgroundColor: Colors.red,
+            duration: const Duration(seconds: 2),
           ),
         );
       }
@@ -92,11 +95,9 @@ class _MainLayoutState extends State<MainLayout> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      // Kita tidak butuh Stack lagi di sini karena footer sudah diurus HomeScreen
       body: SafeArea(
         bottom: false,
         child: HomeScreen(
-          // --- PERBAIKAN: Parameter 'player' wajib ada ---
           player: _audioPlayer, 
           selectedCategory: _selectedCategory,
           onCategoryChanged: (newCategory) {
